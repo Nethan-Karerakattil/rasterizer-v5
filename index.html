@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3d Renderer</title>
+
+    <script src="./util/data.js" defer></script>
+    <script src="./util/loadObjects.js" defer></script>
+    <script src="./util/math.js" defer></script>
+    <script src="./index.js" defer></script>
+</head>
+<body>
+    <canvas id="c"></canvas>
+
+    <div class="toolbar">
+        <label for="texture-files">Upload Object File(s)</label><br>
+        <input id="object-files" type="file" accept=".obj" onchange="loadObject(this)">
+
+        <div class="space"></div>
+
+        <label for="texture-files">Upload Texture File(s)</label><br>
+        <input id="texture-files" type="file" accept="image/*" onchange="loadTextures(this)">
+
+        <div class="space"></div>
+        <div class="space"></div>
+        <div class="space"></div>
+
+        <label for="canvas-height">Canvas Height:</label><br>
+        <input id="canvas-height" type="number" value="256">
+
+        <div class="space"></div>
+
+        <label for="canvas-width">Canvas Width:</label><br>
+        <input id="canvas-width" type="number" value="256">
+
+        <div class="space"></div>
+        <div class="space"></div>
+
+        <label for="fov">Field Of View:</label><br>
+        <input id="fov" type="number" value="90">
+
+        <div class="space"></div>
+
+        <label for="angle">Object Angle:</label><br>
+        <input id="angle" type="number" value="0">
+
+        <div class="space"></div>
+
+        <label for="rotation-x">Rotation X:</label>
+        <input id="rotation-x" type="checkbox" checked>
+
+        <label for="rotation-y">Rotation Y:</label>
+        <input id="rotation-y" type="checkbox" checked>
+
+        <label for="rotation-z">Rotation Z:</label>
+        <input id="rotation-z" type="checkbox" checked>
+    </div>
+
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            height: 100vh;
+        }
+
+        #c {
+            border: #000 solid 1px;
+        }
+
+        .toolbar {
+            padding: 50px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background-color: #000;
+            color: #fff;
+        }
+
+        .space {
+            height: 20px;
+        }
+    </style>
+</body>
+</html>
