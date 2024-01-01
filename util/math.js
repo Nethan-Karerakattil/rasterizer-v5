@@ -20,6 +20,13 @@ const matrixMath = {
         return [ nv[0] / nk, nv[1] / nk, nv[2] / nk];
     },
 
+    vectorMultiply: (v, k) => {
+        let nv = structuredClone(v);
+        let nk = structuredClone(k);
+
+		return [ nv[0] * nk, nv[1] * k, nv[2] * k ];
+	},
+
     createNewMatrix: (rows, collumns) => {
         let m = [];
 
@@ -68,13 +75,6 @@ const matrixMath = {
 
         if(!nm[3]) nm[3] = [ 0, 0, 0 ];
         if(!ni[3]) ni[3] = 0;
-
-        // return [
-        //     ni[0] * nm[0][0] + ni[1] * nm[1][0] + ni[2] * nm[2][0] + ni[3] * nm[3][0],
-        //     ni[0] * nm[0][1] + ni[1] * nm[1][1] + ni[2] * nm[2][1] + ni[3] * nm[3][1],
-        //     ni[0] * nm[0][2] + ni[1] * nm[1][2] + ni[2] * nm[2][2] + ni[3] * nm[3][2],
-        //     ni[0] * nm[0][3] + ni[1] * nm[1][3] + ni[2] * nm[2][3] + ni[3] * nm[3][3], 
-        // ]
 
         let output = [
             ni[0] * nm[0][0] + ni[1] * nm[1][0] + ni[2] * nm[2][0] + nm[3][0],
@@ -195,5 +195,59 @@ const matrixMath = {
         }
 
         return m;
-    }
+    },
+
+    matrixPointAt: (pos, target, up) => {
+		let newForward = matrixMath.vectorNormalise(matrixMath.vectorSubstract(target, pos));
+		let a = matrixMath.vectorMultiply(newForward, matrixMath.vectorDotProduct(up, newForward));
+		let newUp = matrixMath.vectorNormalise(matrixMath.vectorSubstract(up, a));
+		let newRight = matrixMath.vectorCrossProduct(newUp, newForward);
+
+		let out = matrixMath.createNewMatrix(4, 4);
+		out[0][0] = newRight[0];
+        out[0][1] = newRight[1];
+        out[0][2] = newRight[2];
+        out[0][3] = 0;
+
+		out[1][0] = newUp[0];
+        out[1][1] = newUp[1];
+        out[1][2] = newUp[2];
+        out[1][3] = 0;
+
+		out[2][0] = newForward[0];
+        out[2][1] = newForward[1];
+        out[2][2] = newForward[2];
+        out[2][3] = 0;
+
+		out[3][0] = pos[0];
+        out[3][1] = pos[1];
+        out[3][2] = pos[2];
+        out[3][3] = 1;
+
+		return out;
+	},
+
+	matrixQuickInverse: (m) => {
+		let out = matrixMath.createNewMatrix(4, 4);
+		out[0][0] = m[0][0];
+        out[0][1] = m[1][0];
+        out[0][2] = m[2][0];
+        out[0][3] = 0;
+
+		out[1][0] = m[0][1];
+        out[1][1] = m[1][1];
+        out[1][2] = m[2][1];
+        out[1][3] = 0;
+
+		out[2][0] = m[0][2];
+        out[2][1] = m[1][2];
+        out[2][2] = m[2][2];
+        out[2][3] = 0;
+
+		out[3][0] = -(m[3][0] * out[0][0] + m[3][1] * out[1][0] + m[3][2] * out[2][0]);
+		out[3][1] = -(m[3][0] * out[0][1] + m[3][1] * out[1][1] + m[3][2] * out[2][1]);
+		out[3][2] = -(m[3][0] * out[0][2] + m[3][1] * out[1][2] + m[3][2] * out[2][2]);
+		out[3][3] = 1;
+		return out;
+	},
 }

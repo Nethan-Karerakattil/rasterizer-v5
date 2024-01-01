@@ -1,30 +1,8 @@
 const canvas = document.querySelector("#c");
 const ctx = canvas.getContext("2d");
 
-const canvasWidthElement = document.querySelector("#canvas-width");
-const canvasHeightElement = document.querySelector("#canvas-height");
-const fovElement = document.querySelector("#fov");
-const angleElement = document.querySelector("#angle");
-const isRotationXElement = document.querySelector("#rotation-x");
-const isRotationYElement = document.querySelector("#rotation-y");
-const isRotationZElement = document.querySelector("#rotation-z");
-
 canvas.width = parseInt(canvasWidthElement.value);
 canvas.height = parseInt(canvasHeightElement.value);
-
-let fov = parseInt(fovElement.value);
-let angle = parseInt(angleElement.value);
-let isRotationX = isRotationXElement.checked;
-let isRotationY = isRotationYElement.checked;
-let isRotationZ = isRotationZElement.checked;
-
-canvasWidthElement.addEventListener("change", () => canvas.width = parseInt(canvasWidthElement.value));
-canvasHeightElement.addEventListener("change", () => canvas.height = parseInt(canvasHeightElement.value));
-fovElement.addEventListener("change", () => fov = parseInt(fovElement.value));
-angleElement.addEventListener("change", () => angle = parseInt(angleElement.value));
-isRotationXElement.addEventListener("change", () => isRotationX = isRotationXElement.checked);
-isRotationYElement.addEventListener("change", () => isRotationY = isRotationYElement.checked);
-isRotationZElement.addEventListener("change", () => isRotationZ = isRotationZElement.checked);
 
 /* Animation Loop */
 animate();
@@ -48,42 +26,45 @@ function animate(){
 
 /* Vertex Shader */
 function vertex_shader(model_space){
-    let world_space = [], camera_space = [], screen_space = [];
+    let view_space = [], screen_space = [];
 
-    /* World Space */
+    /* World Matrix */
     let near = 0.1;
     let far = 1000;
     let aspect_ratio = canvas.height / canvas.width;
 
     let projection_matrix = matrixMath.matrixMakeProjection(fov, aspect_ratio, near, far);
-    let rotation_x = matrixMath.matrixRotationX(angle);
-    let rotation_y = matrixMath.matrixRotationY(angle);
-    let rotation_z = matrixMath.matrixRotationZ(angle);
-
     let world_matrix = matrixMath.matrixMakeIdentity();
-    if(isRotationX) world_matrix = matrixMath.matrixMultiplyMatrix(world_matrix, rotation_x);
-    if(isRotationY) world_matrix = matrixMath.matrixMultiplyMatrix(world_matrix, rotation_y);
-    if(isRotationZ) world_matrix = matrixMath.matrixMultiplyMatrix(world_matrix, rotation_z);
+
+    /* Camera Matrix */
+    let up = [0, 1, 0];
+    let target = [0, 0, 1];
+    let camera_rotation = matrixMath.matrixRotationY(yaw);
+    look_direction = matrixMath.matrixMultiplyVector(camera_rotation, target);
+    target = matrixMath.vectorAdd(camera, look_direction);
+
+    let camera_matrix = matrixMath.matrixPointAt(camera, target, up);
+    let view_matrix = matrixMath.matrixQuickInverse(camera_matrix);
+    view_matrix = matrixMath.matrixMultiplyMatrix(view_matrix, world_matrix);
     
     for(let i = 0; i < model_space.length; i++){
-        world_space[i] = matrixMath.createNewMatrix(3, 3);
+        /* Model Space -> View Space */
+        view_space[i] = matrixMath.createNewMatrix(3, 3);
 
-        world_space[i][0] = matrixMath.matrixMultiplyVector(world_matrix, model_space[i][0]);
-        world_space[i][1] = matrixMath.matrixMultiplyVector(world_matrix, model_space[i][1]);
-        world_space[i][2] = matrixMath.matrixMultiplyVector(world_matrix, model_space[i][2]);
+        view_space[i][0] = matrixMath.matrixMultiplyVector(view_matrix, model_space[i][0]);
+        view_space[i][1] = matrixMath.matrixMultiplyVector(view_matrix, model_space[i][1]);
+        view_space[i][2] = matrixMath.matrixMultiplyVector(view_matrix, model_space[i][2]);
 
-        world_space[i][0][2] = world_space[i][0][2] + 3;
-        world_space[i][1][2] = world_space[i][1][2] + 3;
-        world_space[i][2][2] = world_space[i][2][2] + 3;
+        view_space[i][0][2] = view_space[i][0][2] + 3;
+        view_space[i][1][2] = view_space[i][1][2] + 3;
+        view_space[i][2][2] = view_space[i][2][2] + 3;
 
-        world_space[i][0] = matrixMath.matrixMultiplyVector(projection_matrix, world_space[i][0]);
-        world_space[i][1] = matrixMath.matrixMultiplyVector(projection_matrix, world_space[i][1]);
-        world_space[i][2] = matrixMath.matrixMultiplyVector(projection_matrix, world_space[i][2]);
-    }
+        view_space[i][0] = matrixMath.matrixMultiplyVector(projection_matrix, view_space[i][0]);
+        view_space[i][1] = matrixMath.matrixMultiplyVector(projection_matrix, view_space[i][1]);
+        view_space[i][2] = matrixMath.matrixMultiplyVector(projection_matrix, view_space[i][2]);
 
-    /* Screen Space */
-    for(let i = 0; i < world_space.length; i++){
-        screen_space = world_space;
+        /* Scale Up Points */
+        screen_space = view_space;
         screen_space[i][0][0] += 1;
         screen_space[i][1][0] += 1;
         screen_space[i][2][0] += 1;
