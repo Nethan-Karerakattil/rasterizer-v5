@@ -53,6 +53,7 @@ function vertex_shader(model_space){
     /* World Space */
     let near = 0.1;
     let far = 1000;
+    let fov = 90;
     let aspect_ratio = canvas.height / canvas.width;
 
     let projection_matrix = matrixMath.matrixMakeProjection(fov, aspect_ratio, near, far);
