@@ -5,12 +5,9 @@ canvas.width = parseInt(canvasWidthElement.value);
 canvas.height = parseInt(canvasHeightElement.value);
 
 /* Animation Loop */
-animate();
-function animate(){
+generate_image();
+function generate_image(){
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    let c_buffer = ctx.createImageData(canvas.width, canvas.height);
-    let z_buffer = [];
 
     let model_space = [];
     for(let i = 0; i < triangles.length; i++){
@@ -18,31 +15,28 @@ function animate(){
     }
 
     let screen_space = vertex_shader(model_space);
-    let rastered_image = rasterizer(screen_space, c_buffer, z_buffer);
-    fragment_shader();
+    let rastered_image = rasterizer(screen_space);
 
-    requestAnimationFrame(animate)
+    requestAnimationFrame(generate_image);
 }
 
 /* Vertex Shader */
 function vertex_shader(model_space){
-    let view_space = [], screen_space = [];
+    let view_space = [], clipped_triangles = [], screen_space = [];
 
-    /* World Matrix */
+    /* View Matrix */
     let near = 0.1;
     let far = 1000;
     let aspect_ratio = canvas.height / canvas.width;
 
-    let projection_matrix = matrixMath.matrixMakeProjection(fov, aspect_ratio, near, far);
-    let world_matrix = matrixMath.matrixMakeIdentity();
-
-    /* Camera Matrix */
     let up = [0, 1, 0];
     let target = [0, 0, 1];
     let camera_rotation = matrixMath.matrixRotationY(yaw);
     look_direction = matrixMath.matrixMultiplyVector(camera_rotation, target);
     target = matrixMath.vectorAdd(camera, look_direction);
 
+    let projection_matrix = matrixMath.matrixMakeProjection(fov, aspect_ratio, near, far);
+    let world_matrix = matrixMath.matrixMakeIdentity();
     let camera_matrix = matrixMath.matrixPointAt(camera, target, up);
     let view_matrix = matrixMath.matrixQuickInverse(camera_matrix);
     view_matrix = matrixMath.matrixMultiplyMatrix(view_matrix, world_matrix);
@@ -59,12 +53,16 @@ function vertex_shader(model_space){
         view_space[i][1][2] = view_space[i][1][2] + 3;
         view_space[i][2][2] = view_space[i][2][2] + 3;
 
-        view_space[i][0] = matrixMath.matrixMultiplyVector(projection_matrix, view_space[i][0]);
-        view_space[i][1] = matrixMath.matrixMultiplyVector(projection_matrix, view_space[i][1]);
-        view_space[i][2] = matrixMath.matrixMultiplyVector(projection_matrix, view_space[i][2]);
+        clipped_triangles[i] = view_space[i];
+        let triangle_clipped = clip([0, 0, 0.1], [0, 0, 1], view_space[i]);
+        for(let j = 0; j < triangle_clipped.length; j++){
+            clipped_triangles[i][0] = matrixMath.matrixMultiplyVector(projection_matrix, triangle_clipped[j][0]);
+            clipped_triangles[i][1] = matrixMath.matrixMultiplyVector(projection_matrix, triangle_clipped[j][1]);
+            clipped_triangles[i][2] = matrixMath.matrixMultiplyVector(projection_matrix, triangle_clipped[j][2]);
+        }
 
         /* Scale Up Points */
-        screen_space = view_space;
+        screen_space[i] = clipped_triangles[i];
         screen_space[i][0][0] += 1;
         screen_space[i][1][0] += 1;
         screen_space[i][2][0] += 1;
@@ -82,11 +80,89 @@ function vertex_shader(model_space){
         screen_space[i][2][1] *= 0.5 * canvas.height;
     }
 
+    function clip(plane_p, plane_n, in_tri){
+        let clone_plane_p = structuredClone(plane_p);
+        let clone_plane_n = structuredClone(plane_n);
+        let clone_in_tri = structuredClone(in_tri);
+
+        clone_plane_n = matrixMath.vectorNormalise(clone_plane_n);
+
+        function dist(p){
+            let n = matrixMath.vectorNormalise(p);
+            return clone_plane_n[0] * p[0] + clone_plane_n[1] * p[1] + clone_plane_n[2] * p[2] - matrixMath.vectorDotProduct(clone_plane_n, clone_plane_p);
+        }
+
+        let inside_points = [];
+        let outside_points = [];
+        let inside_points_count = 0;
+        let outside_points_count = 0;
+
+		let d0 = dist(clone_in_tri[0]);
+		let d1 = dist(clone_in_tri[1]);
+		let d2 = dist(clone_in_tri[2]);
+
+		if(d0 >= 0) inside_points[inside_points_count++] = clone_in_tri[0];
+		else outside_points[outside_points_count++] = clone_in_tri[0];
+
+		if(d1 >= 0) inside_points[inside_points_count++] = clone_in_tri[1];
+		else outside_points[outside_points_count++] = clone_in_tri[1];
+
+		if(d2 >= 0) inside_points[inside_points_count++] = clone_in_tri[2];
+		else outside_points[outside_points_count++] = clone_in_tri[2];
+
+        console.log(inside_points_count, outside_points_count);
+
+		if(inside_points_count == 0) return [];
+		if(inside_points_count == 3) return [clone_in_tri];
+
+		if(inside_points_count == 1 && outside_points_count == 2){
+            let out = clone_in_tri;
+
+			out[0] = inside_points[0];
+			out[1] = intersect_plane(clone_plane_p, clone_plane_n, inside_points[0], outside_points[0]);
+			out[2] = intersect_plane(clone_plane_p, clone_plane_n, inside_points[0], outside_points[1]);
+
+			return [out];
+		}
+
+		if(inside_points_count == 2 && outside_points_count == 1){
+			let out1 = clone_in_tri;
+			let out2 = clone_in_tri;
+
+			out1[0] = inside_points[0];
+			out1[1] = inside_points[1];
+			out1[2] = intersect_plane(clone_plane_p, clone_plane_n, inside_points[0], outside_points[0]);
+
+			out2[0] = inside_points[1];
+			out2[1] = out1[2];
+			out2[2] = intersect_plane(clone_plane_p, clone_plane_n, inside_points[1], outside_points[0]);
+
+			return [out1, out2];
+		}
+    }
+
+    function intersect_plane(plane_p, plane_n, lineStart, lineEnd){
+        let clone_plane_p = structuredClone(plane_p);
+        let clone_plane_n = structuredClone(plane_n);
+        let clone_lineStart = structuredClone(lineStart);
+        let clone_lineEnd = structuredClone(lineEnd);
+        
+        clone_plane_n = matrixMath.vectorNormalise(clone_plane_n);
+		let plane_d = -matrixMath.vectorDotProduct(clone_plane_n, clone_plane_p);
+		let ad = matrixMath.vectorDotProduct(clone_lineStart, clone_plane_n);
+		let bd = matrixMath.vectorDotProduct(clone_lineEnd, clone_plane_n);
+		let t = (-plane_d - ad) / (bd - ad);
+		let lineStartToEnd = matrixMath.vectorSubstract(clone_lineEnd, clone_lineStart);
+		let lineToIntersect = matrixMath.vectorMultiply(lineStartToEnd, t);
+
+		return matrixMath.vectorAdd(lineStart, lineToIntersect);
+    }
+
     return screen_space;
 }
 
 /* Rasterizer */
-function rasterizer(screen_space, c_buffer, z_buffer){
+function rasterizer(screen_space){
     for(let i = 0; i < screen_space.length; i++){
         ctx.beginPath();
         ctx.moveTo(screen_space[i][0][0], screen_space[i][0][1]);
@@ -95,9 +171,9 @@ function rasterizer(screen_space, c_buffer, z_buffer){
         ctx.lineTo(screen_space[i][0][0], screen_space[i][0][1]);
         ctx.stroke();
     }
-}
 
-/* Fragment Shader */
-function fragment_shader(){
-
+    /* Fragment Shader */
+    function fragment_shader(){
+        return [0, 0, 0];
+    }
 }

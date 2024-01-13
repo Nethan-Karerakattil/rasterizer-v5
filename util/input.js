@@ -13,8 +13,6 @@ canvasHeightElement.addEventListener("change", () => canvas.height = parseInt(ca
 fovElement.addEventListener("change", () => fov = parseInt(fovElement.value));
 
 document.addEventListener("keydown", (e) => {
-    console.log(e.keyCode);
-
     switch(e.keyCode){
         case 38: /* Arrow Up */
             camera[1] -= 0.1;
