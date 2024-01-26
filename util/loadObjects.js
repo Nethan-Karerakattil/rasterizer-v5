@@ -1,3 +1,4 @@
+let triangles = [];
 function loadObject(element) {
     let file = element.files[0];
     let reader = new FileReader();

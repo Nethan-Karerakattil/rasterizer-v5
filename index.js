@@ -4,10 +4,31 @@ const ctx = canvas.getContext("2d");
 canvas.width = parseInt(canvasWidthElement.value);
 canvas.height = parseInt(canvasHeightElement.value);
 
+/* Frame Counter */
+let frameCounter = 0;
+createNewTimeout();
+function createNewTimeout(){
+    setTimeout(() => {
+        createNewTimeout();
+        console.log(`Frames Per Second: ${frameCounter}`);
+        frameCounter = 0;
+    }, 1000);
+}
+
 /* Animation Loop */
-generate_image();
+requestAnimationFrame(generate_image);
 function generate_image(){
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if(triangles.length === 0){
+        ctx.font = "20px arial";
+        ctx.textAlign = "center";
+        ctx.fillText("No 3d Data to display", canvas.width / 2, canvas.height / 2);
+        ctx.stroke();
+
+        requestAnimationFrame(generate_image);
+        return;
+    }
 
     let model_space = [];
     for(let i = 0; i < triangles.length; i++){
@@ -15,14 +36,15 @@ function generate_image(){
     }
 
     let screen_space = vertex_shader(model_space);
-    let rastered_image = rasterizer(screen_space);
+    rasterizer(screen_space);
 
+    frameCounter++;
     requestAnimationFrame(generate_image);
 }
 
 /* Vertex Shader */
 function vertex_shader(model_space){
-    let view_space = [], clipped_triangles = [], screen_space = [];
+    let view_space = [], depth_clipped = [], screen_space = [], screen_clipped = [];
 
     /* View Matrix */
     let near = 0.1;
@@ -53,31 +75,48 @@ function vertex_shader(model_space){
         view_space[i][1][2] = view_space[i][1][2] + 3;
         view_space[i][2][2] = view_space[i][2][2] + 3;
 
-        clipped_triangles[i] = view_space[i];
-        let triangle_clipped = clip([0, 0, 0.1], [0, 0, 1], view_space[i]);
-        for(let j = 0; j < triangle_clipped.length; j++){
-            clipped_triangles[i][0] = matrixMath.matrixMultiplyVector(projection_matrix, triangle_clipped[j][0]);
-            clipped_triangles[i][1] = matrixMath.matrixMultiplyVector(projection_matrix, triangle_clipped[j][1]);
-            clipped_triangles[i][2] = matrixMath.matrixMultiplyVector(projection_matrix, triangle_clipped[j][2]);
-        }
+        /* Depth Clipping */
+        let triangles_clipped = clip([0, 0, 0.1], [0, 0, 1], view_space[i]);
+        for(let j = 0; j < triangles_clipped.length; j++) depth_clipped.push(triangles_clipped[j]);
+    }
+
+    for(let i = 0; i < depth_clipped.length; i++){
+        /* View Space -> Screen Space */
+        depth_clipped[i][0] = matrixMath.matrixMultiplyVector(projection_matrix, depth_clipped[i][0]);
+        depth_clipped[i][1] = matrixMath.matrixMultiplyVector(projection_matrix, depth_clipped[i][1]);
+        depth_clipped[i][2] = matrixMath.matrixMultiplyVector(projection_matrix, depth_clipped[i][2]);
 
         /* Scale Up Points */
-        screen_space[i] = clipped_triangles[i];
+        screen_space[i] = depth_clipped[i];
         screen_space[i][0][0] += 1;
         screen_space[i][1][0] += 1;
         screen_space[i][2][0] += 1;
-
+    
         screen_space[i][0][1] += 1;
         screen_space[i][1][1] += 1;
         screen_space[i][2][1] += 1;
-
+    
         screen_space[i][0][0] *= 0.5 * canvas.width;
         screen_space[i][1][0] *= 0.5 * canvas.width;
         screen_space[i][2][0] *= 0.5 * canvas.width;
-
+    
         screen_space[i][0][1] *= 0.5 * canvas.height;
         screen_space[i][1][1] *= 0.5 * canvas.height;
         screen_space[i][2][1] *= 0.5 * canvas.height;
+
+        /* Screen Space Clipping */
+        // let clipped = [];
+
+        // clipped.push(clip([ 0, 0, 0 ], [ 0, 1, 0 ], screen_space[i]));
+        // clipped.push(clip([ 0, canvas.height - 1, 0 ], [ 0, -1, 0 ], screen_space[i]));
+        // clipped.push(clip([ 0, 0, 0 ], [ 1, 0, 0 ], screen_space[i]));
+        // clipped.push(clip([ canvas.width - 1, 0, 0 ], [ -1, 0, 0 ], screen_space[i]));
+
+        // for(let w = 0; w < clipped.length; w++){
+        //     for(let j = 0; j < clipped[w].length; j++){
+        //         screen_clipped.push(clipped[w][j]);
+        //     }
+        // }
     }
 
     function clip(plane_p, plane_n, in_tri){
@@ -109,8 +148,6 @@ function vertex_shader(model_space){
 
 		if(d2 >= 0) inside_points[inside_points_count++] = clone_in_tri[2];
 		else outside_points[outside_points_count++] = clone_in_tri[2];
-
-        console.log(inside_points_count, outside_points_count);
 
 		if(inside_points_count == 0) return [];
 		if(inside_points_count == 3) return [clone_in_tri];
@@ -163,6 +200,7 @@ function vertex_shader(model_space){
 
 /* Rasterizer */
 function rasterizer(screen_space){
+
     for(let i = 0; i < screen_space.length; i++){
         ctx.beginPath();
         ctx.moveTo(screen_space[i][0][0], screen_space[i][0][1]);
