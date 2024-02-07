@@ -15,6 +15,11 @@ function createNewTimeout(){
     }, 1000);
 }
 
+let fov = parseInt(fovElement.value);
+// let camera = [0, 0, 0];
+// let look_direction = [0, 0, 1];
+let forward = matrixMath.vectorMultiply(look_direction, 0.1);
+
 /* Animation Loop */
 requestAnimationFrame(generate_image);
 function generate_image(){
@@ -30,13 +35,17 @@ function generate_image(){
         return;
     }
 
+    /* Input */
+    update_keyboard_input();
+
+    /* Render */
     let model_space = [];
     for(let i = 0; i < triangles.length; i++){
         model_space[i] = triangles[i].matrices;
     }
 
     let screen_space = vertex_shader(model_space);
-    rasterizer(screen_space);
+    let cBuffer = rasterizer(screen_space);
 
     frameCounter++;
     requestAnimationFrame(generate_image);
@@ -44,7 +53,7 @@ function generate_image(){
 
 /* Vertex Shader */
 function vertex_shader(model_space){
-    let view_space = [], depth_clipped = [], screen_space = [], screen_clipped = [];
+    let view_space = [], depth_clipped = [], screen_space = []
 
     /* View Matrix */
     let near = 0.1;
@@ -54,6 +63,7 @@ function vertex_shader(model_space){
     let up = [0, 1, 0];
     let target = [0, 0, 1];
     let camera_rotation = matrixMath.matrixRotationY(yaw);
+    camera_rotation = matrixMath.matrixMultiplyMatrix(matrixMath.matrixRotationX(pitch), camera_rotation);
     look_direction = matrixMath.matrixMultiplyVector(camera_rotation, target);
     target = matrixMath.vectorAdd(camera, look_direction);
 
@@ -71,9 +81,9 @@ function vertex_shader(model_space){
         view_space[i][1] = matrixMath.matrixMultiplyVector(view_matrix, model_space[i][1]);
         view_space[i][2] = matrixMath.matrixMultiplyVector(view_matrix, model_space[i][2]);
 
-        view_space[i][0][2] = view_space[i][0][2] + 3;
-        view_space[i][1][2] = view_space[i][1][2] + 3;
-        view_space[i][2][2] = view_space[i][2][2] + 3;
+        view_space[i][0][2] += 3;
+        view_space[i][1][2] += 3;
+        view_space[i][2][2] += 3;
 
         /* Depth Clipping */
         let triangles_clipped = clip([0, 0, 0.1], [0, 0, 1], view_space[i]);
@@ -82,12 +92,12 @@ function vertex_shader(model_space){
 
     for(let i = 0; i < depth_clipped.length; i++){
         /* View Space -> Screen Space */
-        depth_clipped[i][0] = matrixMath.matrixMultiplyVector(projection_matrix, depth_clipped[i][0]);
-        depth_clipped[i][1] = matrixMath.matrixMultiplyVector(projection_matrix, depth_clipped[i][1]);
-        depth_clipped[i][2] = matrixMath.matrixMultiplyVector(projection_matrix, depth_clipped[i][2]);
+        screen_space[i] = depth_clipped[i];
+        screen_space[i][0] = matrixMath.matrixMultiplyVector(projection_matrix, depth_clipped[i][0]);
+        screen_space[i][1] = matrixMath.matrixMultiplyVector(projection_matrix, depth_clipped[i][1]);
+        screen_space[i][2] = matrixMath.matrixMultiplyVector(projection_matrix, depth_clipped[i][2]);
 
         /* Scale Up Points */
-        screen_space[i] = depth_clipped[i];
         screen_space[i][0][0] += 1;
         screen_space[i][1][0] += 1;
         screen_space[i][2][0] += 1;
@@ -103,20 +113,6 @@ function vertex_shader(model_space){
         screen_space[i][0][1] *= 0.5 * canvas.height;
         screen_space[i][1][1] *= 0.5 * canvas.height;
         screen_space[i][2][1] *= 0.5 * canvas.height;
-
-        /* Screen Space Clipping */
-        // let clipped = [];
-
-        // clipped.push(clip([ 0, 0, 0 ], [ 0, 1, 0 ], screen_space[i]));
-        // clipped.push(clip([ 0, canvas.height - 1, 0 ], [ 0, -1, 0 ], screen_space[i]));
-        // clipped.push(clip([ 0, 0, 0 ], [ 1, 0, 0 ], screen_space[i]));
-        // clipped.push(clip([ canvas.width - 1, 0, 0 ], [ -1, 0, 0 ], screen_space[i]));
-
-        // for(let w = 0; w < clipped.length; w++){
-        //     for(let j = 0; j < clipped[w].length; j++){
-        //         screen_clipped.push(clipped[w][j]);
-        //     }
-        // }
     }
 
     function clip(plane_p, plane_n, in_tri){
@@ -200,7 +196,6 @@ function vertex_shader(model_space){
 
 /* Rasterizer */
 function rasterizer(screen_space){
-
     for(let i = 0; i < screen_space.length; i++){
         ctx.beginPath();
         ctx.moveTo(screen_space[i][0][0], screen_space[i][0][1]);
@@ -208,10 +203,5 @@ function rasterizer(screen_space){
         ctx.lineTo(screen_space[i][2][0], screen_space[i][2][1]);
         ctx.lineTo(screen_space[i][0][0], screen_space[i][0][1]);
         ctx.stroke();
-    }
-
-    /* Fragment Shader */
-    function fragment_shader(){
-        return [0, 0, 0];
     }
 }

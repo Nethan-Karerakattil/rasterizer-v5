@@ -24,7 +24,7 @@ const matrixMath = {
         let nv = structuredClone(v);
         let nk = structuredClone(k);
 
-		return [ nv[0] * nk, nv[1] * k, nv[2] * k ];
+		return [ nv[0] * nk, nv[1] * nk, nv[2] * nk ];
 	},
 
     createNewMatrix: (rows, collumns) => {
