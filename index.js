@@ -16,8 +16,6 @@ function createNewTimeout(){
 }
 
 let fov = parseInt(fovElement.value);
-// let camera = [0, 0, 0];
-// let look_direction = [0, 0, 1];
 let forward = matrixMath.vectorMultiply(look_direction, 0.1);
 
 /* Animation Loop */

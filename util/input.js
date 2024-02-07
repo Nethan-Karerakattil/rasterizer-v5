@@ -31,11 +31,19 @@ document.addEventListener("keyup", (e) => {
     else if(e.keyCode === 65) press_a = false;
     else if(e.keyCode === 83) press_s = false;
     else if(e.keyCode === 68) press_d = false;
+
+    if(e.keyCode === 70) {
+        toggle_fullscreen();
+    }
+
+    if(e.keyCode === 82) {
+        canvas.requestPointerLock();
+    }
 });
 
 document.addEventListener("mousemove", (e) => {
-    yaw -= (e.clientX - pre_mouse_position[0]) * 0.005;
-    pitch -= (e.clientY - pre_mouse_position[1]) * 0.005;
+    yaw -= e.movementX * 0.005;
+    pitch -= e.movementY * 0.005;
 
     pre_mouse_position = [e.clientX, e.clientY];
 })
@@ -63,5 +71,13 @@ function update_keyboard_input() {
         let strafe_direction = matrixMath.vectorCrossProduct(look_direction, camera_up);
         strafe_direction = matrixMath.vectorMultiply(strafe_direction, 0.05);
         camera = matrixMath.vectorSubstract(camera, strafe_direction);
+    }
+}
+
+function toggle_fullscreen() {
+    if(!document.fullscreenElement){
+        document.documentElement.requestFullscreen();
+    } else if(document.exitFullscreen) {
+        document.exitFullscreen();
     }
 }
